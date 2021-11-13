@@ -21,6 +21,8 @@ if [ -z "$DOCKER_NET" ]; then
 fi
 DOCKER_VOL=""
 
+PTVSD_PORT=5679
+
 for i in "$@"
 do
   if [ ! -z "$SKIP" ]; then
@@ -234,11 +236,19 @@ fi
 if ! [ -z "$ACAPY_ARG_FILE" ]; then
   DOCKER_ENV="${DOCKER_ENV} -e ACAPY_ARG_FILE=${ACAPY_ARG_FILE}"
 fi
-
+if [ -n "${ENABLE_PTVSD}" ]; then
+  DOCKER_ENV="${DOCKER_ENV} -e ENABLE_PTVSD_FABER=${ENABLE_PTVSD}"
+fi
 if ! [ -z "${ENABLE_PYDEVD_PYCHARM}" ]; then
   DOCKER_ENV="${DOCKER_ENV} -e ENABLE_PYDEVD_PYCHARM=${ENABLE_PYDEVD_PYCHARM} -e PYDEVD_PYCHARM_CONTROLLER_PORT=${PYDEVD_PYCHARM_CONTROLLER_PORT} -e PYDEVD_PYCHARM_AGENT_PORT=${PYDEVD_PYCHARM_AGENT_PORT}"
 fi
 
+DOCKER_PUBLISH="-p 0.0.0.0:${AGENT_PORT_RANGE}:${AGENT_PORT_RANGE}"
+if [ -n "${ENABLE_PTVSD}" ]; then
+  DOCKER_PUBLISH="${DOCKER_PUBLISH} -p ${PTVSD_PORT}:${PTVSD_PORT}"
+fi
+echo $DOCKER_PUBLISH
+#  -p $PTVSD_PORT:$PTVSD_PORT
 # on Windows, docker run needs to be prefixed by winpty
 if [ "$OSTYPE" = "msys" ]; then
   DOCKER="winpty docker"
@@ -247,7 +257,7 @@ DOCKER=${DOCKER:-docker}
 
 $DOCKER run --name $AGENT --rm -it ${DOCKER_OPTS} \
   --network=${DOCKER_NET} \
-  -p 0.0.0.0:$AGENT_PORT_RANGE:$AGENT_PORT_RANGE \
+  $DOCKER_PUBLISH \
   ${DOCKER_VOL} \
   $DOCKER_ENV \
   faber-alice-demo $AGENT_MODULE --port $AGENT_PORT $ARGS
